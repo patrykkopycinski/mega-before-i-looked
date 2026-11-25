@@ -12,9 +12,13 @@ export type DigestRow = {
   lastAt: string;
 };
 
+// Log entries per status, over the lines that parsed.
+export type Counts = Record<RunStatus, number>;
+
 export type Night = {
   night: string;
   rows: DigestRow[];
+  counts: Counts;
   badLines: number;
 };
 
