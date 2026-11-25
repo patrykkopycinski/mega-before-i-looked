@@ -1,0 +1,53 @@
+# Publishes one rig page as a static preview on GitHub Pages (ADR 0003).
+# The page is rendered here and shipped as a Pages artifact, never committed.
+# The banner shows the LANE_MARKER repo secret; with the secret removed it reads "no marker set".
+name: preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      page:
+        description: rig path to publish
+        default: /digest/2026-10-28
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+      - name: Save the page
+        env:
+          LANE_MARKER: ${{ secrets.LANE_MARKER }}
+          PORT: 8787
+          PAGE: ${{ inputs.page }}
+        run: |
+          node_modules/.bin/tsx src/server.ts &
+          for i in $(seq 1 50); do curl -fs localhost:8787/health >/dev/null && break; sleep 0.2; done
+          mkdir -p site
+          curl -fsS "localhost:8787${PAGE}" -o site/index.html
+          kill %1
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+          retention-days: 1
+      - id: deploy
+        uses: actions/deploy-pages@v4
